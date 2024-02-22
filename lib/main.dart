@@ -226,7 +226,7 @@ class _MyAppState extends State<MyApp> {
         data: {
           "chat_room_id": "1",
           "sender_id": "clsu5j3bd004nd80v5ykcubfn",
-          "message": "Hello This is Sunny-DRIVER",
+          "message": _data.text,
           "user_type": "DRIVERUSER"
         },
           options: Options(

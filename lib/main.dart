@@ -20,6 +20,10 @@ class _MyAppState extends State<MyApp> {
   PusherChannelsFlutter pusher = PusherChannelsFlutter.getInstance();
 
   String _log = 'output:\n';
+  String callbackUrlKey = "__Secure-next-auth.callback-url";
+  String csrfTokenKey = "__Host-next-auth.csrf-token";
+  String sessionTokenKey = "__Secure-next-auth.session-token";
+
 
   final _apiKey = TextEditingController();
   final _cluster = TextEditingController();
@@ -146,6 +150,45 @@ class _MyAppState extends State<MyApp> {
 
 
   }
+  Future<void> storeAuthToken(List<dynamic> authToken) async {
+    try {
+      //TODO: Use the flutter_secure_storage package instead of Shared Preferences
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      List<String> csrfToken = authToken[0].split(";");
+      List<String> callbackUrl = authToken[1].split(";");
+      List<String> sessionToken = [];
+
+      if (authToken.length == 3) {
+        sessionToken = authToken[2].split(";");
+      }
+
+      prefs.setString(callbackUrlKey, callbackUrl.first.trim());
+      prefs.setString(csrfTokenKey, csrfToken.first.trim());
+      prefs.setString(
+        sessionTokenKey,
+        sessionToken.isNotEmpty ? sessionToken.first.trim() : '',
+      );
+    } catch (error, stack) {
+      debugPrint('$error\n$stack');
+      throw {'message': 'Failed to save tokens'};
+    }
+  }
+
+  Future<String> getAuthToken() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? callbackUrl = prefs.getString(callbackUrlKey);
+      String? csrfToken = prefs.getString(csrfTokenKey);
+      String? sessionToken = prefs.getString(sessionTokenKey);
+
+      String? cookies = "${callbackUrl!}; ${csrfToken!}; ${sessionToken!}";
+
+      return cookies;
+    } catch (error, stack) {
+      debugPrint('$error\n$stack');
+      throw {'message': 'Failed to get tokens'};
+    }
+  }
 
   Future<void> login() async {
     try {
@@ -158,9 +201,13 @@ class _MyAppState extends State<MyApp> {
         },
       );
       // Handle login success
-      String accessToken ="";
+
 
       print("Login successful: ${response.data}");
+
+      await storeAuthToken(response.data["cookies"]); // Await storeAuthToken
+      String accessToken = await getAuthToken();
+      print(accessToken);
       // Now you can call the function to send a message
       await sendMessage(accessToken);
     } catch (e) {
@@ -169,7 +216,7 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Future<void> sendMessage(String accessToken) async {
+  Future<void> sendMessage( String accessToken) async {
     try {
       var dio = Dio();
       // Configure Dio to follow redirects
@@ -184,7 +231,7 @@ class _MyAppState extends State<MyApp> {
         },
           options: Options(
             headers: {
-              'Authorization': 'Bearer $accessToken',
+              'Cookie': accessToken,
             },
 
           )
